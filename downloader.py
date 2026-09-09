@@ -52,6 +52,14 @@ def _validate_public_https_url(url: str, *, restrict_domains: bool) -> str:
     if not hostname:
         raise DownloadError("That URL is invalid.")
 
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise DownloadError("That URL is invalid.") from exc
+
+    if port not in (None, 443):
+        raise DownloadError("Only standard HTTPS links are supported.")
+
     if restrict_domains and not _domain_is_allowed(hostname):
         raise DownloadError(
             "Supported platforms are YouTube, Instagram, and TikTok."
@@ -60,7 +68,7 @@ def _validate_public_https_url(url: str, *, restrict_domains: bool) -> str:
     try:
         addresses = socket.getaddrinfo(
             hostname,
-            443,
+            port or 443,
             type=socket.SOCK_STREAM,
         )
     except socket.gaierror as exc:
@@ -217,50 +225,6 @@ def download_video(url: str, output_directory: Path) -> tuple[Path, dict]:
     except yt_dlp.utils.DownloadError as exc:
         raise DownloadError(
             "The media download failed. The platform may have changed "
-            "its delivery format or restricted this post."
-        ) from exc
-
-    return _find_downloaded_media(output_directory), clean_info
-
-
-def download_audio(url: str, output_directory: Path) -> tuple[Path, dict]:
-    """Download one audio track as MP3 into the temporary directory."""
-    output_directory.mkdir(parents=True, exist_ok=True)
-    output_template = str(output_directory / "%(id)s.%(ext)s")
-
-    options = {
-        "quiet": True,
-        "no_warnings": True,
-        "noplaylist": True,
-        "socket_timeout": 30,
-        "retries": 2,
-        "fragment_retries": 2,
-        "continuedl": False,
-        "nopart": True,
-        "overwrites": True,
-        "restrictfilenames": True,
-        "outtmpl": output_template,
-        "format": "bestaudio/best",
-        "postprocessors": [
-            {
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192",
-            },
-            {
-                "key": "FFmpegMetadata",
-                "add_metadata": True,
-            },
-        ],
-    }
-
-    try:
-        with yt_dlp.YoutubeDL(options) as ydl:
-            info = ydl.extract_info(url, download=True)
-            clean_info = ydl.sanitize_info(info)
-    except yt_dlp.utils.DownloadError as exc:
-        raise DownloadError(
-            "The audio download failed. The platform may have changed "
             "its delivery format or restricted this post."
         ) from exc
 
