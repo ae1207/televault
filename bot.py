@@ -255,7 +255,7 @@ async def _send_video(
 
             if file_size > MAX_TELEGRAM_FILE_SIZE:
                 size_mb = file_size / (1024 * 1024)
-                await update.effective_message.reply_text(
+                await status_message.edit_text(
                     f"The downloaded file is {size_mb:.1f} MB. "
                     "This MVP only sends files below 49 MB."
                 )
